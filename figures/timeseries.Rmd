@@ -1,0 +1,330 @@
+---
+#
+# Copyright (c) 2025 Snowflake Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+title: "Figures: Snowflake Workload Timeseries Patterns"
+author: "Murray Stokely"
+email: "murray.stokely@snowflake.com"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    number_sections: true
+date: "2024-10-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
+defaultW <- getOption("warn")
+options(warn=-1)
+library(zoo)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(arrow)
+library(cowplot)
+library(lubridate)
+options(warn=defaultW)
+```
+
+# Introduction
+
+This file includes figures and analysis for Section 2.2 on the Snowflake Workload User Demand Patterns.  All figures and analysis are generated from the public dataset.
+
+# Full-Granularity Aggregated Hourly Timeseries
+
+All regions and SKU types aggregated together at full hourly granularity and plotted over the full time range of the data set.
+
+```{r}
+data <- read_parquet("../hourly_normalized.parquet")
+data.all <- data %>% group_by(USAGE_HOUR) %>% summarise(across(NORM_USAGE, sum))
+head(data.all)
+ggplot(data.all, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
+```
+
+## Normalized Full-Granularity Aggregated Hourly Timeseries
+
+All regions and SKU types aggregated together at full hourly granularity and plotted over the full time range of the data set.  Normalized with the largest data point at 100.
+
+```{r}
+data.p1 <- data %>% subset(REGION_NUM == 2) %>% group_by(USAGE_HOUR) %>%
+  summarise(across(NORM_USAGE, sum))
+data.p1$TOTAL_COMPUTE = data.p1$NORM_USAGE
+data.p1$day <- as.Date(data.p1$USAGE_HOUR)
+data.p1$TOTAL_COMPUTE = (100*data.p1$TOTAL_COMPUTE) / max(data.p1$TOTAL_COMPUTE)
+p1 <- ggplot(data.p1, aes(x=USAGE_HOUR, y=TOTAL_COMPUTE)) + geom_line(color="#5471AB") + theme_bw() + theme(axis.title.x=element_text(size=16),axis.title.y=element_text(size=16), axis.text=element_text(size=14)) + xlab("Year") + ylab("Normalized\nVM Instance Demand")
+old.mai <- par("mai")
+par("mai"= c(1,0.9,2,0.4))
+p1
+```
+
+## Normalized Timeseries of the Daily Means
+
+Plot of the normalized daily means.
+
+```{r}
+data.p2 <- data.p1 %>% group_by(day) %>% summarize(DAILY_MEAN = mean(TOTAL_COMPUTE))
+data.p2$DAILY_MEAN = (100*data.p2$DAILY_MEAN) / max(data.p2$DAILY_MEAN)
+p2 <- ggplot(data.p2, aes(x=day, y=DAILY_MEAN)) + geom_line(color="#5471AB") + theme_bw() + theme(axis.title.x=element_text(size=16),axis.title.y=element_text(size=16), axis.text=element_text(size=14)) + xlab("Year") + ylab("Normalized\nVM Instance Demand")
+old.mai <- par("mai")
+par("mai"= c(1,0.9,2,0.4))
+p2
+```
+
+# Weekly Pattern Analysis
+
+We trim the start and end of our timeseries toalign our dataset with Sunday through Saturday weeks so we can split it up in 7 day chunks and look at the distribution of weekly patterns.
+
+We then generate timeseries of the maximum, minimum, and mean of each day.
+
+```{r}
+all <- data.p1 %>% subset(USAGE_HOUR >= as.POSIXct("2021-11-07", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-10-27", tz="UTC"))
+range(all$USAGE_HOUR)
+all.ts <- zoo(all$TOTAL_COMPUTE, all$USAGE_HOUR)
+# Compute the maximumes over each day.
+all.maxdaily <- rollapply(all.ts, width=24, by=24, FUN=max)
+all.meandaily <- rollapply(all.ts, width=24, by=24, FUN=mean)
+all.mindaily <- rollapply(all.ts, width=24, by=24, FUN=min)
+plot(all.ts)
+plot(all.maxdaily)
+all.meandaily <- 100*all.meandaily/(max(all.meandaily))
+plot(all.meandaily)
+```
+
+Next we plot the first two weeks of our dataset to examine the different
+weekly periodicity.
+
+```{r weeklysubsets}
+range(all$USAGE_HOUR)
+head(all)
+plot(all$TOTAL_COMPUTE[1:(24*7)], type="l")
+plot(all$TOTAL_COMPUTE[(24*7):(24*7*2)], type="l")
+```
+
+Now we break up the timeseries into 7 day partitions, calculate the quantiles
+at each time offset within the partitions to compute the range of weekly
+patterns.
+
+```{r hourlyquantilesplot}
+weeks <- rollapply(all$TOTAL_COMPUTE, width=24*7, by=24*7,
+                   FUN=function(x) return(x)) 
+
+# Now we have a matrix.  Each row is one of the 1 week periods of time.
+# Each 1-week period should be normalized separately to the peak demand that week.
+
+weeks.norm <- apply(weeks, 1, function(x) { return ((100*x)/max(x)) })
+
+# Now for each week, return a data frame and concat them together.
+tmp.df <- do.call(rbind, lapply(1:ncol(weeks.norm), function(i) return (
+  data.frame(x=weeks.norm[,i], y=1:length(weeks.norm[,i]),
+             dow=rep(c("Su", "M", "T", "W", "R", "F", "S"), each=24, times=1)))))
+
+# Now we generate a single data.frame of hourly quantiles.  One row for
+# each hour in the week (24*7 = 168 rows) with a column for each of 7 different
+# percentiles.
+
+hourly.quantiles <- tmp.df %>% group_by(y) %>%
+  summarize(p90 = quantile(x, probs=0.9),
+            p95 = quantile(x, probs=0.95),
+            p99 = quantile(x, probs=0.99),
+            p10=quantile(x, probs=0.1),
+            p5=quantile(x, probs=0.05),
+            p1=quantile(x, probs=0.01),
+            med=quantile(x, probs=0.5))
+
+# Nice x-axis labels for the days of the week.
+days <- c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+p3 <- ggplot(hourly.quantiles, aes(x=y, y=med)) +
+  geom_ribbon(aes(ymin=p5, ymax=p95), fill="#DDE3EE") +
+  geom_line(color="#5471AB") + theme_bw() +
+  theme(axis.text = element_text(size=14),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16)) +
+  xlab("Day of the Week") + ylab("Normalized Weekly\nVM Instance Demand") +
+  scale_x_continuous(breaks=seq(from=0, to=24*14, length.out=14),
+                     labels=rep(days, 2))
+
+p3
+```
+
+
+```{r stackedpatternplot}
+plot_grid(p2, p3, labels=c("(A)", "(B)"), scale=0.9, ncol=1)
+```
+
+```{r pdfout, eval=FALSE, fig.width=7, fig.height=5.5}
+pdf("dailypattern.pdf", width=7, height=5.5)
+plot_grid(p2, p3, labels=c("(A)", "(B)"), scale=0.9, ncol=1)
+dev.off()
+```
+
+```{r pngout, eval=FALSE, fig.width=7, fig.height=5.5}
+png("dailypattern.png", width=700, height=550)
+plot_grid(p2, p3, labels=c("(A)", "(B)"), scale=0.9, ncol=1)
+dev.off()
+```
+
+# Autocorrelation Analysis
+
+```{r}
+plot(all.meandaily)
+pacf(all.meandaily)
+#data.zoo <- zoo(all$NORM_USAGE, all$USAGE_HOUR)
+#data.sub
+#data.sub.zoo <- zoo(data.sub$TOTAL_COST, data.sub$day)
+#data.sub.zoo
+#plot(data.zoo)
+#pacf(data.sub.zoo)
+#acf(data.sub.zoo)
+z = acf(all.meandaily)
+z
+y = acf(diff(all.meandaily))
+y
+x = acf(diff(all.meandaily,7))
+x
+```
+
+# Hourly daily maximum vs daily minimum
+
+```{r}
+all.maxweekly <- rollapply(all.meandaily, width=7, by=7, FUN=max)
+all.minweekly <- rollapply(all.meandaily, width=7, by=7, FUN=min)
+head(all.maxweekly)
+head(all.minweekly)
+head(all.maxweekly / all.minweekly)
+mean(all.maxweekly / all.minweekly)
+```
+
+```{r}
+head(all.maxdaily)
+head(all.mindaily)
+head(all.maxdaily/all.mindaily)
+mean(all.maxdaily/all.mindaily)
+```
+Average daily maximum is 34% higher than average daily minimum.
+
+# Holiday Effect Analysis
+
+```{r}
+holidays.2022 <- subset(data.all, (USAGE_HOUR > as.POSIXct("2021-12-15") &
+                                     USAGE_HOUR < as.POSIXct("2022-01-15")))
+# Normalize this holiday period to 100 over the holidays.
+holidays.2022$NORM_USAGE <- (100 * holidays.2022$NORM_USAGE) /
+  max(holidays.2022$NORM_USAGE)
+label.1 <- "2021-2022"
+label.2 <- "2022-2023"
+label.3 <- "2023-2024"
+holidays.2022$year = label.1
+holidays.2022$weekend.start = as.POSIXct("2021-12-18")
+holidays.2022$weekend.end = as.POSIXct("2021-12-20")
+holidays.2022$ts <- holidays.2022$USAGE_HOUR
+
+highlights <- data.frame(year=c(rep(label.1, 4), rep(label.2, 5),
+                                rep(label.3, 5)),
+                         weekend.start=c(as.POSIXct("2021-12-18"),
+                                         as.POSIXct("2021-12-25"),
+                                         as.POSIXct("2022-01-01"),
+                                         as.POSIXct("2022-01-08"),
+                                         as.POSIXct("2021-12-17"),
+                                         as.POSIXct("2021-12-24"),
+                                         as.POSIXct("2021-12-31"),
+                                         as.POSIXct("2022-01-07"),
+                                         as.POSIXct("2022-01-14"),
+                                         as.POSIXct("2021-12-16"),
+                                         as.POSIXct("2021-12-23"),
+                                         as.POSIXct("2021-12-30"),
+                                         as.POSIXct("2022-01-06"),
+                                         as.POSIXct("2022-01-13")),
+                         weekend.end=c(as.POSIXct("2021-12-20"),
+                                       as.POSIXct("2021-12-27"),
+                                       as.POSIXct("2022-01-03"),
+                                       as.POSIXct("2022-01-10"),
+                                       as.POSIXct("2021-12-19"),
+                                       as.POSIXct("2021-12-26"),
+                                       as.POSIXct("2022-01-02"),
+                                       as.POSIXct("2022-01-09"),
+                                       as.POSIXct("2022-01-15"),
+                                       as.POSIXct("2021-12-18"),
+                                       as.POSIXct("2021-12-25"),
+                                       as.POSIXct("2022-01-01"),
+                                       as.POSIXct("2022-01-08"),
+                                       as.POSIXct("2022-01-15")))
+
+holidays.2023 <- subset(data.all, (USAGE_HOUR > as.POSIXct("2022-12-15") &
+                                     USAGE_HOUR < as.POSIXct("2023-01-15")))
+holidays.2023$ts <- holidays.2023$USAGE_HOUR - dyears(1)
+
+holidays.2023$NORM_USAGE <- (100 * holidays.2023$NORM_USAGE) /
+  max(holidays.2023$NORM_USAGE)
+holidays.2023$year = label.2
+holidays.2023$weekend.start = as.POSIXct("2021-12-17")
+holidays.2023$weekend.end = as.POSIXct("2021-12-19")
+
+holidays.2024 <- subset(data.all, (USAGE_HOUR > as.POSIXct("2023-12-15") &
+                                     USAGE_HOUR < as.POSIXct("2024-01-15")))
+holidays.2024$ts <- holidays.2024$USAGE_HOUR - dyears(2)
+
+holidays.2024$NORM_USAGE <- (100 * holidays.2024$NORM_USAGE) /
+  max(holidays.2024$NORM_USAGE)
+holidays.2024$year = label.3
+holidays.2024$weekend.start = as.POSIXct("2021-12-16")
+holidays.2024$weekend.end = as.POSIXct("2021-12-18")
+
+holidays.all <- rbind(holidays.2022, holidays.2023, holidays.2024)
+head(holidays.all)
+```
+
+
+
+```{r}
+holidayPlot <- function() {
+  highlights$ts <- min(holidays.all$ts)
+  highlights$NORM_USAGE <- min(holidays.all$NORM_USAGE)
+  ggplot(data=holidays.all, aes(x=ts, y=NORM_USAGE))  +
+    geom_rect(data=highlights, aes(xmin=weekend.start, xmax=weekend.end,
+                                   ymin=-Inf, ymax=Inf),
+              fill="#DDE3EE",alpha=1.0) +
+    geom_line() + facet_grid(rows = vars(year)) + theme_bw() +
+    theme(axis.text=element_text(size=15), axis.title=element_text(size=15),
+          strip.text=element_text(size=15), legend.text = element_text(size=15),
+          legend.title = element_text(size=15)) +
+    ylab("Normalized VM Instance Demand") + xlab("") +
+    scale_x_continuous(breaks=c(as.POSIXct("2021-12-18"), as.POSIXct("2021-12-25"),
+                                as.POSIXct("2022-01-01"), as.POSIXct("2022-01-08"),
+                                as.POSIXct("2022-01-15")),
+                       labels=c("Dec 18", "Dec 25", "Jan 1", "Jan 8", "Jan 15"),
+                       minor_breaks=seq(from=as.POSIXct("2021-12-19"),
+                                        to=as.POSIXct("2022-01-15"), by=86400))
+}
+holidayPlot()
+```
+
+```{r holidaypdfout, echo=FALSE}
+pdf("annualholiday.pdf", width=9, height=6)
+holidayPlot()
+dev.off()
+```
+
+```{r holidaypngout, echo=FALSE}
+png("annualholiday.png", width=700, height=600*7/9)
+holidayPlot()
+dev.off()
+```
+
