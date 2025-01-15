@@ -2,3 +2,4 @@ pandas
 pyarrow
 matplotlib
 seaborn
+jupyter
