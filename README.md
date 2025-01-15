@@ -10,7 +10,7 @@ figures and analysis results in the paper.
 
 The dataset contains normalized and obfuscated hourly data about VM demand in four example Snowflake deployments over a period of 3 years from 11/1/2021 to 10/31/2024.
 Each hour includes (type of VM, region, number of VMs of that type) used at that time.
-This dataset is available in both CSV and Parquet formats and can be obtained from the Downloads page.
+This dataset is available in both CSV and [Parquet](./hourly_normalized.parquet) formats.
 
 ### Related Datasets
 
@@ -23,13 +23,13 @@ However, this trace covers only 2 weeks of time and so is not sufficient for ana
 ### Schema
 
 * *Timestamp*: An hourly timestamp for the record.
-* *SKU Type*: This field is obfuscated with the precise SKU identifier from the Cloud Service Provider mapped into a capital letter.
-* *Region*: The region where the SKU was deployed.  This field is obfuscated with the precise region name from the Cloud Service Provider mapped into a number between 1 and 4.
-* *Count*: The number of VMs deployed in that sku, region, and hour.  This field is normalized such that the largest sku, region, hour tuple is set to 10000 and other values are scaled linearly to the nearest whole number.
+* *VM Type*: This field is obfuscated with the precise VM identifier from the Cloud Service Provider mapped into a capital letter.
+* *Region*: The region where the VM was deployed.  This field is obfuscated with the precise region name from the Cloud Service Provider mapped into a number between 1 and 4.
+* *Count*: The number of VMs of the specified type, region, and hour.  This field is normalized such that the largest type, region, hour tuple is set to 1000 in each region and other values are scaled linearly to the nearest whole number.
 
 ## Scripts
 
-The scripts directory has some scripts to reproduce the figures and analysis in the paper.
+The [figures](./figures/) directory has some scripts to reproduce the figures and analysis in the paper.
 
 * *[IntroAnalysis.Rmd](IntroAnalysis.Rmd)*: Simple reading and visualization of the dataset in R ([pdf notebook](IntroAnalysis.pdf)).
 
@@ -63,16 +63,18 @@ Murray Stokely (murray.stokely@snowflake.com)
 
 ## Usage
 
-Information in this dataset is open to the public for use in research and education purposes.
+Copyright 2025 Snowflake Inc. This data is licensed under CC BY 4.0.
+To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+
 Kindly cite the following publication if you are using our dataset:
 
 ```
 @inproceedings {snowflake-icpe25,
-author = {Murray Stokely and Orestis Kostakis and Neel Nadgir},
-title = {Shaved Ice: Optimal Compute Resource Commitments for Dynamic Multi-Cloud Workloads},
-booktitle = {Proceedings of the ACM/SPEC International Conference on Performance Engineering},
-year = {2025},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
+  author = {Murray Stokely and Orestis Kostakis and Neel Nadgir},
+  title = {Shaved Ice: Optimal Compute Resource Commitments for Dynamic Multi-Cloud Workloads},
+  booktitle = {Proceedings of the ACM/SPEC International Conference on Performance Engineering},
+  year = {2025},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
 }
 ```
