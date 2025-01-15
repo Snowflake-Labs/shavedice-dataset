@@ -45,6 +45,17 @@ options(warn=defaultW)
 The R code in this repository is provided in [R Markdown](https://rmarkdown.rstudio.com/) files. 
 This is a notebook format that is well supported by IDEs such as [R Studio](https://www.rstudio.com).
 
+## Packages
+
+The animation depends on ffmpeg to stitch together frames into an animation.  If you are installing R packages from source, you may also need to install a few packages.
+On MacOS, you should install:
+
+```
+brew install ffmpeg
+brew install gdal
+brew install units
+```
+
 ## Libraries
 
 The following dependent libraries must be installed in your version of R to run the notebooks here.
@@ -60,7 +71,7 @@ install.packages(c("tidyr", "dplyr", "ggplot2", "ggpattern", "arrow", "zoo",
 
 This provided parquet file can be read into R or Python with the relevant parquet libraries, or queried directly with Snowflake, DuckDB, or other tools.
 
-We start by examing the first few rows of the data.  The total dataset has 827,944 rows.
+We start by examing the first few rows of the data.  The total dataset has 604,752 rows.
 
 ```{r readdata}
 library(arrow)
@@ -77,7 +88,7 @@ See [IntroAnalysis-py.ipynb](./IntroAnalysis-py.ipynb) for a Jupyter notebook to
 ```
 duckdb
 D select count(*) from read_parquet('./hourly_normalized.parquet');
-827944
+604752
 ```
 
 # Visualization
