@@ -10,7 +10,14 @@ figures and analysis results in the paper.
 
 The dataset contains normalized and obfuscated hourly data about VM demand in four example Snowflake deployments over a period of 3 years from 11/1/2021 to 10/31/2024.
 Each hour includes (type of VM, region, number of VMs of that type) used at that time.
-This dataset is available in both CSV and [Parquet](./hourly_normalized.parquet) formats.
+This dataset is available in both [compressed CSV](./hourly_normalized.csv.gz) and [Parquet](./hourly_normalized.parquet) formats.
+
+### Schema
+
+* *Timestamp*: An hourly timestamp for the record.
+* *VM Type*: This field is obfuscated with the precise VM identifier from the Cloud Service Provider mapped into a capital letter.
+* *Region*: The region where the VM was deployed.  This field is obfuscated with the precise region name from the Cloud Service Provider mapped into a number between 1 and 4.
+* *Count*: The number of VMs of the specified type, region, and hour.  This field is normalized such that the largest type, region, hour tuple is set to 1000 in each region and other values are scaled linearly to the nearest whole number.
 
 ### Related Datasets
 
@@ -19,13 +26,6 @@ The [Snowset dataset](https://github.com/resource-disaggregation/snowset) provid
 This earlier data set shows the clear diurnal and weekly patterns of Snowflake workloads, particularly for read-only ad-hoc and OLAP queries.
 It also provides detailed statistics collected from each of the 70 million queries.
 However, this trace covers only 2 weeks of time and so is not sufficient for analysis of longer-term strategies to purchase commitments and optimize cloud compute spending. 
-
-### Schema
-
-* *Timestamp*: An hourly timestamp for the record.
-* *VM Type*: This field is obfuscated with the precise VM identifier from the Cloud Service Provider mapped into a capital letter.
-* *Region*: The region where the VM was deployed.  This field is obfuscated with the precise region name from the Cloud Service Provider mapped into a number between 1 and 4.
-* *Count*: The number of VMs of the specified type, region, and hour.  This field is normalized such that the largest type, region, hour tuple is set to 1000 in each region and other values are scaled linearly to the nearest whole number.
 
 ## Scripts
 
