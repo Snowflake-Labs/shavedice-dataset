@@ -69,7 +69,11 @@ data.p1 <- data %>% subset(REGION_NUM == 2) %>% group_by(USAGE_HOUR) %>%
 data.p1$TOTAL_COMPUTE = data.p1$NORM_USAGE
 data.p1$day <- as.Date(data.p1$USAGE_HOUR)
 data.p1$TOTAL_COMPUTE = (100*data.p1$TOTAL_COMPUTE) / max(data.p1$TOTAL_COMPUTE)
-p1 <- ggplot(data.p1, aes(x=USAGE_HOUR, y=TOTAL_COMPUTE)) + geom_line(color="#5471AB") + theme_bw() + theme(axis.title.x=element_text(size=16),axis.title.y=element_text(size=16), axis.text=element_text(size=14)) + xlab("Year") + ylab("Normalized\nVM Instance Demand")
+p1 <- ggplot(data.p1, aes(x=USAGE_HOUR, y=TOTAL_COMPUTE)) +
+  geom_line(color="#5471AB") + theme_bw() +
+  theme(axis.title.x=element_text(size=16), axis.title.y=element_text(size=16),
+        axis.text=element_text(size=14)) +
+  xlab("Year") + ylab("Normalized\nVM Instance Demand")
 old.mai <- par("mai")
 par("mai"= c(1,0.9,2,0.4))
 p1
@@ -80,9 +84,14 @@ p1
 Plot of the normalized daily means.
 
 ```{r}
-data.p2 <- data.p1 %>% group_by(day) %>% summarize(DAILY_MEAN = mean(TOTAL_COMPUTE))
+data.p2 <- data.p1 %>% group_by(day) %>%
+  summarize(DAILY_MEAN = mean(TOTAL_COMPUTE))
 data.p2$DAILY_MEAN = (100*data.p2$DAILY_MEAN) / max(data.p2$DAILY_MEAN)
-p2 <- ggplot(data.p2, aes(x=day, y=DAILY_MEAN)) + geom_line(color="#5471AB") + theme_bw() + theme(axis.title.x=element_text(size=16),axis.title.y=element_text(size=16), axis.text=element_text(size=14)) + xlab("Year") + ylab("Normalized\nVM Instance Demand")
+p2 <- ggplot(data.p2, aes(x=day, y=DAILY_MEAN)) + geom_line(color="#5471AB") +
+  theme_bw() + theme(axis.title.x=element_text(size=16),
+                     axis.title.y=element_text(size=16),
+                     axis.text=element_text(size=14)) +
+  xlab("Year") + ylab("Normalized\nVM Instance Demand")
 old.mai <- par("mai")
 par("mai"= c(1,0.9,2,0.4))
 p2
@@ -95,8 +104,8 @@ We trim the start and end of our timeseries toalign our dataset with Sunday thro
 We then generate timeseries of the maximum, minimum, and mean of each day.
 
 ```{r}
-all <- data.p1 %>% subset(USAGE_HOUR >= as.POSIXct("2021-11-07", tz="UTC")) %>%
-  subset(USAGE_HOUR < as.POSIXct("2024-10-27", tz="UTC"))
+all <- data.p1 %>% subset(USAGE_HOUR >= as.POSIXct("2021-05-02", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-04-28", tz="UTC"))
 range(all$USAGE_HOUR)
 all.ts <- zoo(all$TOTAL_COMPUTE, all$USAGE_HOUR)
 # Compute the maximumes over each day.

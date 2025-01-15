@@ -52,8 +52,8 @@ We start by restricting to a 2-week subset of the data from Summer 2024, aggrega
 ```{r readdata}
 this.dir <- getwd()
 data <- read_parquet("../hourly_normalized.parquet")
-data <- data %>% subset(USAGE_HOUR >= as.POSIXct("2024-06-02", tz="UTC")) %>%
-  subset(USAGE_HOUR < as.POSIXct("2024-06-16", tz="UTC"))
+data <- data %>% subset(USAGE_HOUR >= as.POSIXct("2024-04-07", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-04-21", tz="UTC"))
 dim(data)
 head(data)
 range(data$USAGE_HOUR)
