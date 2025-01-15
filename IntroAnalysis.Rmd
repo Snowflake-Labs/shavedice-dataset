@@ -1,0 +1,157 @@
+---
+# Copyright 2025 Snowflake Inc. 
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+title: "IntroAnalysis"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    number_sections: true
+date: "2025-01-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r libraries, echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
+defaultW <- getOption("warn") # suppress all informational messages during pkg load
+options(warn=-1)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(arrow)
+options(warn=defaultW)
+```
+
+# Dependencies
+
+The R code in this repository is provided in [R Markdown](https://rmarkdown.rstudio.com/) files. 
+This is a notebook format that is well supported by IDEs such as [R Studio](https://www.rstudio.com).
+
+## Packages
+
+The animation depends on ffmpeg to stitch together frames into an animation.  If you are installing R packages from source, you may also need to install a few packages.
+On MacOS, you should install:
+
+```
+brew install ffmpeg
+brew install gdal
+brew install units
+```
+
+## Libraries
+
+The following dependent libraries must be installed in your version of R to run the notebooks here.
+
+```{r libdependencies, eval=FALSE}
+install.packages(c("tidyr", "dplyr", "ggplot2", "ggpattern", "arrow", "zoo",
+                   "lubridate", "cowplot"))
+```
+
+# Reading the Data
+
+## R
+
+This provided parquet file can be read into R or Python with the relevant parquet libraries, or queried directly with Snowflake, DuckDB, or other tools.
+
+We start by examing the first few rows of the data.  The total dataset has 604,752 rows.
+
+```{r readdata}
+library(arrow)
+data <- read_parquet("./hourly_normalized.parquet")
+head(data)
+dim(data)
+```
+## Python
+
+See [IntroAnalysis-py.ipynb](./IntroAnalysis-py.ipynb) for a Jupyter notebook to read in and plot this dataset with Python.
+
+## DuckDB
+
+```
+duckdb
+D select count(*) from read_parquet('./hourly_normalized.parquet');
+604752
+```
+
+# Visualization
+
+## Complete Dataset
+
+The following graph shows every data point in the dataset.  There is a separate panel for each region, and then a separate colored line for each instance type within the region, showing the relative demand for different VM types across time.
+
+
+```{r visualizeall}
+ggplot(data, aes(x=USAGE_HOUR, y=NORM_USAGE, color=INSTANCE_TYPE)) +
+  geom_line() + theme_bw() +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=15),
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15),
+        strip.text=element_text(size=15)) +
+  ggtitle("Normalized VM Demand from 12 Instance Types Across 4 Regions") +
+  facet_wrap(. ~ REGION_NUM)
+```
+
+
+```{r visualizeallpng, echo=FALSE}
+png("timeseries.png", width=900, height=600)
+ggplot(data, aes(x=USAGE_HOUR, y=NORM_USAGE, color=INSTANCE_TYPE)) +
+  geom_line() + theme_bw() +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=15),
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15),
+        strip.text=element_text(size=15)) +
+  ggtitle("Normalized VM Demand from 12 Instance Types Across 4 Regions") +
+  facet_wrap(. ~ REGION_NUM)
+dev.off()
+```
+
+
+## Subset of 2 specific instance types
+
+```{r visualizesubsets}
+data.sub <- data %>% subset(INSTANCE_TYPE %in% c("A", "B"))
+ggplot(data.sub, aes(x=USAGE_HOUR, y=NORM_USAGE, color=INSTANCE_TYPE)) +
+  geom_line() + theme_bw() +
+  theme(axis.text=element_text(size=15), axis.title=element_text(size=15),
+        legend.text = element_text(size=15), legend.title = element_blank(),
+        legend.position="bottom", strip.text=element_text(size=15)) +
+  facet_wrap(. ~ REGION_NUM)
+```
+
+## Subsetting to a specific region and then aggregating all VM types together for a regional demand timeseries
+
+```{r visualizeaggregate}
+data.2 <- data %>% subset(REGION_NUM==2) %>% group_by(USAGE_HOUR) %>%
+  summarise(across(NORM_USAGE, sum))
+head(data.2)
+ggplot(data.2, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
+```
+
+## Subset of a week to examine weekly pattern
+
+```{r weeklypattern}
+data.sub <- data.2 %>%
+  subset(USAGE_HOUR > "2024-01-07") %>%
+  subset(USAGE_HOUR < "2024-01-14")
+ggplot(data.sub, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
+data.sub
+```
+
