@@ -8,7 +8,7 @@ figures and analysis results in the paper.
 
 ## Dataset
 
-The dataset contains normalized and obfuscated hourly data about VM demand in four example Snowflake deployments over a period of 3 years from 5/1/2021 to 4/30/2024.
+The dataset contains normalized and obfuscated hourly data about VM demand in four example Snowflake deployments over a period of 3 years from 2/1/2021 to 1/30/2024.
 Each hour includes (type of VM, region, number of VMs of that type) used at that time.
 This dataset is available in both [compressed CSV](./hourly_normalized.csv.gz) and [Parquet](./hourly_normalized.parquet) formats.
 
