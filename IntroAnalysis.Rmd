@@ -71,7 +71,7 @@ install.packages(c("tidyr", "dplyr", "ggplot2", "ggpattern", "arrow", "zoo",
 
 This provided parquet file can be read into R or Python with the relevant parquet libraries, or queried directly with Snowflake, DuckDB, or other tools.
 
-We start by examing the first few rows of the data.  The total dataset has 604,752 rows.
+We start by examing the first few rows of the data.  The total dataset has 524,832 rows.
 
 ```{r readdata}
 library(arrow)
@@ -88,7 +88,7 @@ See [IntroAnalysis-py.ipynb](./IntroAnalysis-py.ipynb) for a Jupyter notebook to
 ```
 duckdb
 D select count(*) from read_parquet('./hourly_normalized.parquet');
-604752
+524832
 ```
 
 # Visualization
@@ -149,8 +149,8 @@ ggplot(data.2, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
 
 ```{r weeklypattern}
 data.sub <- data.2 %>%
-  subset(USAGE_HOUR > "2024-01-07") %>%
-  subset(USAGE_HOUR < "2024-01-14")
+  subset(USAGE_HOUR >= as.POSIXct("2024-01-07", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-01-14", tz="UTC"))
 ggplot(data.sub, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
 data.sub
 ```

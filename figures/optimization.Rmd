@@ -49,13 +49,13 @@ options(warn=defaultW)
 This file includes figures and analysis for Section 3.2 on Setting Optimal
 Commitment Level for Periodic Demand.
 
-We start by restricting to a 2-week subset of the data from April 2024, aggregate the different regions and SKUs together to a single timeseries of total VM demand, and normalize this to a 100 unit peak over that time window.
+We start by restricting to a 2-week subset of the data from January 2024, aggregate the different regions and SKUs together to a single timeseries of total VM demand, and normalize this to a 100 unit peak over that time window.
 
 ```{r}
 data <- read_parquet("../hourly_normalized.parquet")
-data <- data %>% subset(REGION_NUM == 2) %>%
-  subset(USAGE_HOUR >= as.POSIXct("2024-04-07", tz="UTC")) %>%
-  subset(USAGE_HOUR < as.POSIXct("2024-04-21", tz="UTC"))
+data <- data %>% 
+  subset(USAGE_HOUR >= as.POSIXct("2024-01-07", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-01-21", tz="UTC"))
 dim(data)
 head(data)
 range(data$USAGE_HOUR)

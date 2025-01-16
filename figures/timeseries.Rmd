@@ -64,7 +64,7 @@ ggplot(data.all, aes(x=USAGE_HOUR, y=NORM_USAGE)) + geom_line()
 All regions and SKU types aggregated together at full hourly granularity and plotted over the full time range of the data set.  Normalized with the largest data point at 100.
 
 ```{r}
-data.p1 <- data %>% subset(REGION_NUM == 2) %>% group_by(USAGE_HOUR) %>%
+data.p1 <- data %>% group_by(USAGE_HOUR) %>%
   summarise(across(NORM_USAGE, sum))
 data.p1$TOTAL_COMPUTE = data.p1$NORM_USAGE
 data.p1$day <- as.Date(data.p1$USAGE_HOUR)
@@ -104,8 +104,8 @@ We trim the start and end of our timeseries toalign our dataset with Sunday thro
 We then generate timeseries of the maximum, minimum, and mean of each day.
 
 ```{r}
-all <- data.p1 %>% subset(USAGE_HOUR >= as.POSIXct("2021-05-02", tz="UTC")) %>%
-  subset(USAGE_HOUR < as.POSIXct("2024-04-28", tz="UTC"))
+all <- data.p1 %>% subset(USAGE_HOUR >= as.POSIXct("2021-02-07", tz="UTC")) %>%
+  subset(USAGE_HOUR < as.POSIXct("2024-01-28", tz="UTC"))
 range(all$USAGE_HOUR)
 all.ts <- zoo(all$TOTAL_COMPUTE, all$USAGE_HOUR)
 # Compute the maximumes over each day.
