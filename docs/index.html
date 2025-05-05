@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Demand Curve Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    .demand-line {
+      stroke: steelblue;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .threshold-line {
+      stroke: black;
+      stroke-width: 1;
+      stroke-dasharray: 5, 5;
+    }
+    /*No CSS needed for the slider, default styling will work*/
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+    }
+
+    /* Increased font size for axis labels */
+    .axis text {
+        font-family: sans-serif;
+        font-size: 16px; /* Increased font size */
+    }
+    /* Legend Styles */
+    .legend {
+      font-family: sans-serif;
+      font-size: 16px; /* Increased font size */
+    }
+    .legend-item {
+        display: inline-block; /* Place items horizontally */
+        margin-right: 20px;      /* Add some spacing */
+    }
+
+    .legend-color {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+
+    
+    /* Styles for the summary boxes */
+    .summary-container {
+      display: flex;
+      justify-content: center; /* Center the boxes horizontally */
+      margin-bottom: 20px; /* Add space below the boxes */
+      width: 100%; /* Ensure it spans the full width */
+    }
+
+    .summary-box {
+      border: 1px solid black;
+      padding: 5px; /* Reduced padding */
+      text-align: center;
+      width: auto;     /* Let the box size to content */
+      margin: 0 10px;  /* Add horizontal margin for spacing */
+    }
+
+    .summary-label {
+      font-family: sans-serif;
+      font-size: 14px; /* Same size as axis labels */
+      display: block;  /* Make label a block element */
+      margin-bottom: 2px; /* Reduced bottom margin */
+    }
+
+    .summary-value {
+      font-family: sans-serif;
+      font-size: 24px; /* Larger font for the value */
+      font-weight: bold;
+      display: block; /* Make a block */
+    }
+     /* Center the SVG and Legend */
+    svg, #legend-container {
+        display: block;
+        margin: 0 auto;  /* Automatic horizontal margins for centering */
+    }
+
+  </style>
+</head>
+<body>
+  <h1>Demand Curve Visualization</h1>
+
+
+  <p>Threshold: <span id="threshold-value">50</span></p>
+  <input type="range" id="threshold-slider" min="0" max="100" value="50" step="1">
+
+  <div class="summary-container">
+    <div class="summary-box">
+      <div class="summary-label">Savings Plan Commitment Level:</div>
+      <div class="summary-value" id="commitment-level">$50</div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-label">Total 2-week Compute Cost:</div>
+      <div class="summary-value" id="total-cost">$0</div>
+    </div>
+  </div>
+
+  <svg width="1160" height="600"></svg>
+  <div id="legend-container" style="width: 1160px;">
+      <div id="legend" class="legend"></div>
+  </div>
+  <script>
+    // --- 1. Data Loading and Preparation ---
+
+    // CSV data as a literal string (your provided data)
+    const csvData = `"USAGE_HOUR","NORM_USAGE"
+2024-01-07,60.880538418396
+2024-01-07 01:00:00,60.964666292765
+2024-01-07 02:00:00,59.0858104318564
+2024-01-07 03:00:00,63.684800897364
+2024-01-07 04:00:00,64.6943353897925
+2024-01-07 05:00:00,64.6382501402131
+2024-01-07 06:00:00,62.28266965788
+2024-01-07 07:00:00,64.6943353897925
+2024-01-07 08:00:00,61.048794167134
+2024-01-07 09:00:00,60.8524957936063
+2024-01-07 10:00:00,59.562535053281
+2024-01-07 11:00:00,59.9551318003365
+2024-01-07 12:00:00,58.5530005608525
+2024-01-07 13:00:00,56.9826135726304
+2024-01-07 14:00:00,57.2630398205272
+2024-01-07 15:00:00,60.7122826696579
+2024-01-07 16:00:00,59.1138530566461
+2024-01-07 17:00:00,56.6461020751542
+2024-01-07 18:00:00,57.9360628154795
+2024-01-07 19:00:00,57.4312955692653
+2024-01-07 20:00:00,55.5804823331464
+2024-01-07 21:00:00,54.9915872125631
+2024-01-07 22:00:00,53.9820527201346
+2024-01-07 23:00:00,66.4610207515423
+2024-01-08,62.1704991587213
+2024-01-08 01:00:00,67.190128996074
+2024-01-08 02:00:00,66.8816601233875
+2024-01-08 03:00:00,69.5457094784072
+2024-01-08 04:00:00,74.2007851934941
+2024-01-08 05:00:00,77.7902411665732
+2024-01-08 06:00:00,81.1833987661245
+2024-01-08 07:00:00,85.7263039820527
+2024-01-08 08:00:00,86.6517106001122
+2024-01-08 09:00:00,89.6803140773976
+2024-01-08 10:00:00,85.7263039820527
+2024-01-08 11:00:00,88.1940549635446
+2024-01-08 12:00:00,83.6231071228267
+2024-01-08 13:00:00,85.8665171060011
+2024-01-08 14:00:00,87.1284352215367
+2024-01-08 15:00:00,89.3157599551318
+2024-01-08 16:00:00,83.4268087492989
+2024-01-08 17:00:00,81.407739764442
+2024-01-08 18:00:00,77.5378575434661
+2024-01-08 19:00:00,73.4436343241727
+2024-01-08 20:00:00,68.9287717330342
+2024-01-08 21:00:00,68.6763881099271
+2024-01-08 22:00:00,66.9938306225463
+2024-01-08 23:00:00,76.6124509254066
+2024-01-09,76.1637689287717
+2024-01-09 01:00:00,77.5659001682558
+2024-01-09 02:00:00,75.5748738081884
+2024-01-09 03:00:00,77.7902411665732
+2024-01-09 04:00:00,85.8384744812114
+2024-01-09 05:00:00,87.2966909702748
+2024-01-09 06:00:00,88.0538418395962
+2024-01-09 07:00:00,94.4195176668536
+2024-01-09 08:00:00,96.4666292765003
+2024-01-09 09:00:00,95.176668536175
+2024-01-09 10:00:00,94.0549635445878
+2024-01-09 11:00:00,90.9983174425126
+2024-01-09 12:00:00,87.5771172181716
+2024-01-09 13:00:00,89.3998878295008
+2024-01-09 14:00:00,89.9887829500841
+2024-01-09 15:00:00,92.0358945597308
+2024-01-09 16:00:00,85.4739203589456
+2024-01-09 17:00:00,77.0891755468312
+2024-01-09 18:00:00,75.7150869321368
+2024-01-09 19:00:00,73.331463825014
+2024-01-09 20:00:00,72.5743129556926
+2024-01-09 21:00:00,70.4150308468873
+2024-01-09 22:00:00,69.1531127313517
+2024-01-09 23:00:00,78.07066741447
+2024-01-10,77.9304542905216
+2024-01-10 01:00:00,77.5939427930454
+2024-01-10 02:00:00,82.3051037577117
+2024-01-10 03:00:00,76.9489624228828
+2024-01-10 04:00:00,84.4083006169378
+2024-01-10 05:00:00,86.9601794727987
+2024-01-10 06:00:00,87.7453729669097
+2024-01-10 07:00:00,93.7464946719013
+2024-01-10 08:00:00,95.6814357823892
+2024-01-10 09:00:00,97.3079080201907
+2024-01-10 10:00:00,89.820527201346
+2024-01-10 11:00:00,91.6432978126753
+2024-01-10 12:00:00,86.1189007291082
+2024-01-10 13:00:00,87.3527762198542
+2024-01-10 14:00:00,90.4935501962984
+2024-01-10 15:00:00,88.1099270891755
+2024-01-10 16:00:00,86.2030286034773
+2024-01-10 17:00:00,78.1828379136287
+2024-01-10 18:00:00,74.7896803140774
+2024-01-10 19:00:00,72.6023555804823
+2024-01-10 20:00:00,73.5277621985418
+2024-01-10 21:00:00,72.3219293325855
+2024-01-10 22:00:00,69.3494111048794
+2024-01-10 23:00:00,78.9960740325294
+2024-01-11,77.0611329220415
+2024-01-11 01:00:00,79.1643297812675
+2024-01-11 02:00:00,77.5939427930454
+2024-01-11 03:00:00,78.0987100392597
+2024-01-11 04:00:00,82.3611890072911
+2024-01-11 05:00:00,85.2776219854178
+2024-01-11 06:00:00,89.4840157038699
+2024-01-11 07:00:00,92.456533931576
+2024-01-11 08:00:00,94.1110487941671
+2024-01-11 09:00:00,95.3449242849131
+2024-01-11 10:00:00,95.5412226584408
+2024-01-11 11:00:00,90.4655075715087
+2024-01-11 12:00:00,85.2495793606282
+2024-01-11 13:00:00,88.1660123387549
+2024-01-11 14:00:00,90.1850813236119
+2024-01-11 15:00:00,89.736399326977
+2024-01-11 16:00:00,88.7268648345485
+2024-01-11 17:00:00,75.6309590577678
+2024-01-11 18:00:00,76.8087492989344
+2024-01-11 19:00:00,70.7795849691531
+2024-01-11 20:00:00,74.5372966909703
+2024-01-11 21:00:00,71.1721817162086
+2024-01-11 22:00:00,67.4425126191812
+2024-01-11 23:00:00,77.5659001682558
+2024-01-12,78.07066741447
+2024-01-12 01:00:00,79.2204150308469
+2024-01-12 02:00:00,80.173864273696
+2024-01-12 03:00:00,78.6315199102636
+2024-01-12 04:00:00,81.7442512619181
+2024-01-12 05:00:00,87.4649467190129
+2024-01-12 06:00:00,90.1850813236119
+2024-01-12 07:00:00,93.2978126752664
+2024-01-12 08:00:00,94.0269209197981
+2024-01-12 09:00:00,96.6348850252384
+2024-01-12 10:00:00,88.3062254627033
+2024-01-12 11:00:00,91.2507010656197
+2024-01-12 12:00:00,83.2024677509815
+2024-01-12 13:00:00,88.334268087493
+2024-01-12 14:00:00,85.7543466068424
+2024-01-12 15:00:00,85.2215367358385
+2024-01-12 16:00:00,79.9775659001683
+2024-01-12 17:00:00,75.6309590577678
+2024-01-12 18:00:00,73.7521031968592
+2024-01-12 19:00:00,70.1346045989905
+2024-01-12 20:00:00,67.6107683679192
+2024-01-12 21:00:00,64.8906337633203
+2024-01-12 22:00:00,62.7033090297252
+2024-01-12 23:00:00,68.8726864834549
+2024-01-13,68.7605159842961
+2024-01-13 01:00:00,66.0964666292765
+2024-01-13 02:00:00,73.7240605720695
+2024-01-13 03:00:00,70.5552439708357
+2024-01-13 04:00:00,69.9663488502524
+2024-01-13 05:00:00,69.9943914750421
+2024-01-13 06:00:00,66.9938306225463
+2024-01-13 07:00:00,67.7790241166573
+2024-01-13 08:00:00,63.2361189007291
+2024-01-13 09:00:00,61.7218171620864
+2024-01-13 10:00:00,63.2922041503085
+2024-01-13 11:00:00,62.8715647784633
+2024-01-13 12:00:00,59.1699383062255
+2024-01-13 13:00:00,59.4223219293326
+2024-01-13 14:00:00,58.945597307908
+2024-01-13 15:00:00,60.5720695457095
+2024-01-13 16:00:00,58.6932136848009
+2024-01-13 17:00:00,56.057206954571
+2024-01-13 18:00:00,57.2069545709478
+2024-01-13 19:00:00,55.4683118339877
+2024-01-13 20:00:00,53.4772854739204
+2024-01-13 21:00:00,54.0100953449243
+2024-01-13 22:00:00,53.5894559730791
+2024-01-13 23:00:00,60.2075154234436
+2024-01-14,62.3387549074593
+2024-01-14 01:00:00,60.2075154234436
+2024-01-14 02:00:00,63.0117779024117
+2024-01-14 03:00:00,63.8810992708918
+2024-01-14 04:00:00,64.4980370162647
+2024-01-14 05:00:00,65.5356141334829
+2024-01-14 06:00:00,64.469994391475
+2024-01-14 07:00:00,65.171060011217
+2024-01-14 08:00:00,60.5440269209198
+2024-01-14 09:00:00,59.7307908020191
+2024-01-14 10:00:00,60.6561974200785
+2024-01-14 11:00:00,60.1514301738643
+2024-01-14 12:00:00,57.6556365675827
+2024-01-14 13:00:00,56.9826135726304
+2024-01-14 14:00:00,58.7212563095906
+2024-01-14 15:00:00,60.9085810431856
+2024-01-14 16:00:00,60.2355580482333
+2024-01-14 17:00:00,58.160403813797
+2024-01-14 18:00:00,57.9360628154795
+2024-01-14 19:00:00,57.0386988222098
+2024-01-14 20:00:00,58.328659562535
+2024-01-14 21:00:00,57.5154234436343
+2024-01-14 22:00:00,57.9360628154795
+2024-01-14 23:00:00,68.2277061132922
+2024-01-15,71.312394840157
+2024-01-15 01:00:00,71.8732473359507
+2024-01-15 02:00:00,74.2288278182838
+2024-01-15 03:00:00,74.6775098149187
+2024-01-15 04:00:00,78.8278182837914
+2024-01-15 05:00:00,83.6231071228267
+2024-01-15 06:00:00,86.4554122265844
+2024-01-15 07:00:00,91.4750420639372
+2024-01-15 08:00:00,93.073471676949
+2024-01-15 09:00:00,94.3634324172743
+2024-01-15 10:00:00,89.9326977005048
+2024-01-15 11:00:00,86.2591138530566
+2024-01-15 12:00:00,86.1469433538979
+2024-01-15 13:00:00,86.5675827257431
+2024-01-15 14:00:00,82.7537857543466
+2024-01-15 15:00:00,84.997195737521
+2024-01-15 16:00:00,80.173864273696
+2024-01-15 17:00:00,73.4716769489624
+2024-01-15 18:00:00,71.5367358384745
+2024-01-15 19:00:00,65.5636567582726
+2024-01-15 20:00:00,63.067863151991
+2024-01-15 21:00:00,65.8721256309591
+2024-01-15 22:00:00,64.0493550196298
+2024-01-15 23:00:00,71.6208637128435
+2024-01-16,73.864273696018
+2024-01-16 01:00:00,76.5563656758273
+2024-01-16 02:00:00,75.7431295569265
+2024-01-16 03:00:00,74.3690409422322
+2024-01-16 04:00:00,86.1189007291082
+2024-01-16 05:00:00,88.0538418395962
+2024-01-16 06:00:00,91.9237240605721
+2024-01-16 07:00:00,92.7650028042625
+2024-01-16 08:00:00,96.9994391475042
+2024-01-16 09:00:00,96.3825014021312
+2024-01-16 10:00:00,90.4094223219293
+2024-01-16 11:00:00,92.0078519349411
+2024-01-16 12:00:00,87.2125630959058
+2024-01-16 13:00:00,91.0263600673023
+2024-01-16 14:00:00,90.1850813236119
+2024-01-16 15:00:00,93.8306225462703
+2024-01-16 16:00:00,87.9697139652271
+2024-01-16 17:00:00,84.8850252383623
+2024-01-16 18:00:00,77.5378575434661
+2024-01-16 19:00:00,74.032529444756
+2024-01-16 20:00:00,73.247335950645
+2024-01-16 21:00:00,71.4245653393158
+2024-01-16 22:00:00,68.7605159842961
+2024-01-16 23:00:00,76.2198541783511
+2024-01-17,77.2574312955693
+2024-01-17 01:00:00,77.453729669097
+2024-01-17 02:00:00,77.2293886707796
+2024-01-17 03:00:00,77.6780706674145
+2024-01-17 04:00:00,84.9411104879417
+2024-01-17 05:00:00,87.8855860908581
+2024-01-17 06:00:00,89.9887829500841
+2024-01-17 07:00:00,91.2787436904094
+2024-01-17 08:00:00,96.49467190129
+2024-01-17 09:00:00,100
+2024-01-17 10:00:00,93.9988782950084
+2024-01-17 11:00:00,89.5961862030286
+2024-01-17 12:00:00,89.4840157038699
+2024-01-17 13:00:00,92.7369601794728
+2024-01-17 14:00:00,92.7650028042625
+2024-01-17 15:00:00,90.8300616937745
+2024-01-17 16:00:00,86.4834548513741
+2024-01-17 17:00:00,78.6595625350533
+2024-01-17 18:00:00,75.1261918115536
+2024-01-17 19:00:00,75.4627033090297
+2024-01-17 20:00:00,73.6399326977005
+2024-01-17 21:00:00,71.6769489624229
+2024-01-17 22:00:00,70.1626472237801
+2024-01-17 23:00:00,77.4256870443074
+2024-01-18,76.8087492989344
+2024-01-18 01:00:00,79.9495232753786
+2024-01-18 02:00:00,79.2484576556366
+2024-01-18 03:00:00,78.9680314077398
+2024-01-18 04:00:00,88.7549074593382
+2024-01-18 05:00:00,92.9893438025799
+2024-01-18 06:00:00,93.5221536735838
+2024-01-18 07:00:00,95.5692652832305
+2024-01-18 08:00:00,97.2518227706113
+2024-01-18 09:00:00,96.3825014021312
+2024-01-18 10:00:00,95.0925406618059
+2024-01-18 11:00:00,93.4941110487942
+2024-01-18 12:00:00,89.119461581604
+2024-01-18 13:00:00,90.0448681996635
+2024-01-18 14:00:00,91.138530566461
+2024-01-18 15:00:00,90.3252944475603
+2024-01-18 16:00:00,83.8474481211441
+2024-01-18 17:00:00,80.5103757711722
+2024-01-18 18:00:00,78.5193494111049
+2024-01-18 19:00:00,73.7801458216489
+2024-01-18 20:00:00,73.4436343241727
+2024-01-18 21:00:00,72.546270330903
+2024-01-18 22:00:00,71.144139091419
+2024-01-18 23:00:00,76.3320246775098
+2024-01-19,75.7711721817162
+2024-01-19 01:00:00,80.6225462703309
+2024-01-19 02:00:00,80.790802019069
+2024-01-19 03:00:00,84.997195737521
+2024-01-19 04:00:00,87.016264722378
+2024-01-19 05:00:00,92.1200224340998
+2024-01-19 06:00:00,95.2888390353337
+2024-01-19 07:00:00,96.9994391475042
+2024-01-19 08:00:00,92.9052159282109
+2024-01-19 09:00:00,99.8037016264722
+2024-01-19 10:00:00,91.3067863151991
+2024-01-19 11:00:00,89.0914189568144
+2024-01-19 12:00:00,86.6236679753225
+2024-01-19 13:00:00,85.4458777341559
+2024-01-19 14:00:00,88.6146943353898
+2024-01-19 15:00:00,86.231071228267
+2024-01-19 16:00:00,81.9405496354459
+2024-01-19 17:00:00,74.9859786876052
+2024-01-19 18:00:00,72.3219293325855
+2024-01-19 19:00:00,71.9854178351094
+2024-01-19 20:00:00,67.6388109927089
+2024-01-19 21:00:00,66.5451486259114
+2024-01-19 22:00:00,64.6662927650028
+2024-01-19 23:00:00,69.0128996074033
+2024-01-20,67.8351093662367
+2024-01-20 01:00:00,65.703869882221
+2024-01-20 02:00:00,66.8816601233875
+2024-01-20 03:00:00,70.1906898485698
+2024-01-20 04:00:00,72.9388670779585
+2024-01-20 05:00:00,72.0415030846887
+2024-01-20 06:00:00,69.1531127313517
+2024-01-20 07:00:00,69.9383062254627
+2024-01-20 08:00:00,65.4234436343242
+2024-01-20 09:00:00,65.0588895120583
+2024-01-20 10:00:00,64.8906337633203
+2024-01-20 11:00:00,64.8065058889512
+2024-01-20 12:00:00,63.3482893998878
+2024-01-20 13:00:00,58.6651710600112
+2024-01-20 14:00:00,61.2170499158721
+2024-01-20 15:00:00,62.1985417835109
+2024-01-20 16:00:00,61.6096466629277
+2024-01-20 17:00:00,58.0762759394279
+2024-01-20 18:00:00,59.4503645541223
+2024-01-20 19:00:00,59.0016825574874
+2024-01-20 20:00:00,55.8328659562535
+2024-01-20 21:00:00,55.5524397083567
+2024-01-20 22:00:00,56.6461020751542
+2024-01-20 23:00:00,62.7313516545149`;
+
+    // Parse the CSV string
+    const data = d3.csvParse(csvData, (d) => {
+      // Parse the date/time string.  Handle both formats.
+      const parseDate = d3.timeParse("%Y-%m-%d %H:%M:%S");
+      const parseDateShort = d3.timeParse("%Y-%m-%d");
+      let parsedDate = parseDate(d.USAGE_HOUR);
+      if (!parsedDate) {
+        parsedDate = parseDateShort(d.USAGE_HOUR);
+      }
+
+
+      return {
+        hour: parsedDate,  // Convert to Date object
+        demand: +d.NORM_USAGE // Convert to number
+      };
+    });
+
+
+
+    // --- 2. Setup SVG and Scales ---
+
+    const margin = { top: 20, right: 30, bottom: 80, left: 70 }; // Increased bottom margin
+    const width = 1160 - margin.left - margin.right;
+    const height = 600 - margin.top - margin.bottom;
+
+    const svg = d3.select("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+
+    // Use scaleTime for the x-axis
+    const xScale = d3.scaleTime()
+        .domain(d3.extent(data, d => d.hour)) // Use d3.extent to get min/max dates
+        .range([0, width]);
+
+
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.demand) * 2.1]) // Always scale to 2.1 * max demand
+      .range([height, 0]);
+//    const yScale = d3.scaleLinear()
+//      .domain([0, d3.max(data, d => d.demand) * 1.1]) // Add some padding at the top
+//      .range([height, 0]);
+
+    // --- 3.  Axes ---
+
+      // Format the x-axis to show dates
+    const xAxis = d3.axisBottom(xScale)
+        .tickFormat(d => {
+            // Check if the time is 00:00:00
+            if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+                return d3.timeFormat("%A")(d); // %M/%d/%Y")(d); // Format as Month/Day/Year
+            } else {
+                return ""; // Return an empty string for other times, hiding the label
+            }
+        });
+
+
+    const yAxis = d3.axisLeft(yScale);
+
+    svg.append("g")
+      .attr("class", "x axis") // Add class for styling
+      .attr("transform", `translate(0,${height})`)
+      .call(xAxis)
+      .selectAll("text")  // Rotate the x-axis labels
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
+
+    svg.append("g")
+      .attr("class", "y axis") // Add class for styling
+      .call(yAxis);
+
+    
+      //X-Axis Label
+      svg.append("text")
+        .attr("transform", "translate(" + (width / 2) + " ," + (height + margin.top + 60) + ")") // Increased offset
+        .style("text-anchor", "middle")
+        .style("font-size", "16px") //Match new size
+        .text("Hour");
+
+      //Y-Axis Label
+      svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left + 15)  //  offset from left margin
+        .attr("x", 0 - (height / 2))
+        .attr("dy", "1em") // removed, position already handles
+        .style("text-anchor", "middle")
+        .style("font-size", "16px") //Match new size
+        .text("Demand");
+
+
+
+    // --- 4. Threshold Line and Slider ---
+
+    let threshold = 50; // Initial threshold value
+
+    const thresholdLine = svg.append("line")
+      .attr("class", "threshold-line")
+      .attr("x1", 0)
+      .attr("x2", width)
+      .attr("y1", yScale(threshold))
+      .attr("y2", yScale(threshold));
+
+    const slider = d3.select("#threshold-slider");
+    slider.on("input", function() {
+      threshold = +this.value; // '+' converts string to number
+      d3.select("#threshold-value").text(threshold);
+      updateVisualization();
+    });
+
+
+    // --- 5.  Demand Line and Area ---
+
+    const line = d3.line()
+      .x(d => xScale(d.hour))
+      .y(d => yScale(adjustDemand(d.demand, threshold))); // Use adjusted demand
+
+      // --- 5.1. Helper Function to adjust demand according to the threshold ---
+
+    function adjustDemand(demand, threshold) {
+          if (demand > threshold) {
+            return threshold + (demand - threshold) * 2.1;
+          }
+          return demand;
+    }
+
+
+    const demandLine = svg.append("path")
+      .datum(data) // Bind *all* data to the line
+      .attr("class", "demand-line")
+      .attr("d", line);  //Use the line generator we set up earlier
+
+
+       // --- 6. Area Fill Functions (Crucial for the Color Coding) ---
+
+    const areaBelow = d3.area()
+        .x(d => xScale(d.hour))
+        .y0(height)
+        .y1(d => yScale(Math.min(adjustDemand(d.demand, threshold), threshold)));
+
+    const areaAboveThresholdBelowDemand = d3.area()
+        .x(d => xScale(d.hour))
+        .y0(d => yScale(threshold))
+        .y1(d => yScale(Math.max(Math.min(adjustDemand(d.demand, threshold), d3.max(data, d => adjustDemand(d.demand, threshold))), threshold)));
+
+    const areaBelowThresholdAboveDemand = d3.area()
+      .x(d => xScale(d.hour))
+      .y0(d => yScale(Math.min(d.demand, threshold)))
+      .y1(d => yScale(threshold));
+
+
+    // --- 7.  Update Function (for Slider Interaction) ---
+
+    function updateVisualization() {
+      // Update threshold line position
+      thresholdLine.attr("y1", yScale(threshold))
+                    .attr("y2", yScale(threshold));
+      // Update areas
+      svg.selectAll(".area-below").remove();
+      svg.selectAll(".area-above-below").remove();
+      svg.selectAll(".area-below-above").remove();
+
+        svg.append("path")
+          .datum(data)
+          .attr("class", "area-below")
+          .attr("fill", "green")
+          .attr("d", areaBelow);
+
+        svg.append("path")
+          .datum(data)
+          .attr("class", "area-above-below")
+          .attr("fill", "yellow")
+          .attr("d", areaAboveThresholdBelowDemand);
+
+        svg.append("path")
+          .datum(data)
+          .attr("class", "area-below-above")
+          .attr("fill", "red")
+          .attr("d", areaBelowThresholdAboveDemand);
+
+      // Update demand line (VERY important - re-draw the line)
+      demandLine.attr("d", line); // Recalculate the line path
+     //  yScale.domain([0, d3.max(data, d => adjustDemand(d.demand, threshold)) * 1.1]) //Update Y axis to match
+       svg.select(".y.axis").call(yAxis);
+    }
+
+    // --- 7.  Update Function (for Slider Interaction) ---
+    function updateVisualization() {
+        // Update threshold line position
+        thresholdLine.attr("y1", yScale(threshold))
+                      .attr("y2", yScale(threshold));
+        // Update areas
+        svg.selectAll(".area-below").remove();
+        svg.selectAll(".area-above-below").remove();
+        svg.selectAll(".area-below-above").remove();
+
+          svg.append("path")
+            .datum(data)
+            .attr("class", "area-below")
+            .attr("fill", "green")
+            .attr("d", areaBelow);
+
+          svg.append("path")
+            .datum(data)
+            .attr("class", "area-above-below")
+            .attr("fill", "yellow")
+            .attr("d", areaAboveThresholdBelowDemand);
+
+          svg.append("path")
+            .datum(data)
+            .attr("class", "area-below-above")
+            .attr("fill", "red")
+            .attr("d", areaBelowThresholdAboveDemand);
+
+        // Update demand line (VERY important - re-draw the line)
+        demandLine.attr("d", line); // Recalculate the line path
+   
+          // --- Update Summary Values ---
+          d3.select("#commitment-level").text("$" + threshold.toLocaleString()); // Add $ and commas
+
+          //Calculate Total Cost (sum of areas)
+          let totalCost = 0;
+          data.forEach(d => {
+            let adjusted = adjustDemand(d.demand, threshold)
+            //Below and Green
+            totalCost += Math.min(adjusted, threshold);
+            //Above and Yellow
+            totalCost += Math.max(0, adjusted-threshold);  // Cost is 0 if below threshold
+             // Below threshold, but above the demand curve
+            totalCost += Math.max(0, threshold - d.demand);
+          });
+
+        d3.select("#total-cost").text("$" + totalCost.toFixed(2).toLocaleString()); // Add $ and commas
+     }
+
+
+     //Initial call for drawing areas
+     updateVisualization();
+
+    // --- 8. Legend ---
+
+    const legendData = [
+      { color: "yellow", label: "On Demand" },
+      { color: "green", label: "Used Savings Plans" },
+      { color: "red", label: "Unused Savings Plans" }
+    ];
+
+    const legend = d3.select("#legend");
+
+    const legendItems = legend.selectAll(".legend-item")
+      .data(legendData)
+      .enter()
+      .append("div")
+      .attr("class", "legend-item");
+
+    legendItems.append("span")
+      .attr("class", "legend-color")
+      .style("background-color", d => d.color);
+
+    legendItems.append("span")
+      .text(d => d.label);
+  </script>
+</body>
+</html>
