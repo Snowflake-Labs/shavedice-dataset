@@ -64,6 +64,10 @@ This data represents a subset of Snowflake VM demand from select regions.
 Therefore, neither the overall growth rates nor the total demand of Snowflake
 VMs can be inferred.
 
+## Papers Using This Dataset
+
+- Hector Pena and Steven Cheun. "[Weekly Seasonality in Cloud Demand: Lessons from Snowflake's Shaved Ice Dataset](https://dl.acm.org/doi/abs/10.1145/3777911.3800696)." ICPE Companion '26, Florence, Italy, 2026.
+
 ## Contact
 
 Murray Stokely (murray.stokely@snowflake.com)
