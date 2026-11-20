@@ -1,3 +1,5 @@
 # Default owners for everything in the repo.
 # They will be requested for review on every pull request.
-*       @sfc-gh-mstokely
+# Policy (mythos-codeowners check): the * rule needs at least 2 users with
+# write access. GitHub ignores owners without write access.
+*       @sfc-gh-mstokely @sfc-gh-dbuse
